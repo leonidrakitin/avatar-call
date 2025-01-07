@@ -32,7 +32,7 @@ export default function InteractiveAvatar() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  let openaiAssistant: OpenAIAssistant | null = null;
+  const [openaiAssistant, setOpenAIAssistant] = useState<OpenAIAssistant | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isLoadingRepeat, setIsLoadingRepeat] = useState(false);
   const [stream, setStream] = useState<MediaStream>();
@@ -66,7 +66,7 @@ export default function InteractiveAvatar() {
   }
 
   async function startSession() {
-    setIsLoadingSession(true);
+        setIsLoadingSession(true);
     const newToken = await fetchAccessToken();
 
     avatar.current = new StreamingAvatar({
@@ -95,8 +95,11 @@ export default function InteractiveAvatar() {
       setIsUserTalking(false);
     });
 
-    openaiAssistant = new OpenAIAssistant("-");
-    await openaiAssistant.initialize();
+    const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const assistant = new OpenAIAssistant(openaiApiKey!);
+    
+    await assistant.initialize();
+    setOpenAIAssistant(assistant);
     console.log(openaiAssistant);
 
     try {
@@ -182,7 +185,7 @@ export default function InteractiveAvatar() {
               {user: transcription, response: response || "No response"},
             ]);
             await avatar.current?.speak({
-              text: response,
+              text: response!,
               taskType: TaskType.REPEAT,
               taskMode: TaskMode.SYNC,
             });
@@ -331,7 +334,7 @@ export default function InteractiveAvatar() {
                     className="bg-gradient-to-tr from-indigo-500 to-indigo-300 w-full text-white"
                     size="md"
                     variant="shadow"
-                    onClick={startSession}
+                    onPress={startSession}
                 >
                   Start session
                 </Button>
