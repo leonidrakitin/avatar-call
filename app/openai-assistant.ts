@@ -9,21 +9,9 @@ export class OpenAIAssistant {
     this.client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
   }
 
-  async initialize(
-    instructions: string = `You are Zhenya, a startup founder with a passion for AI. Help users create an AI bot that can:
-            - Replicate the look and thinking style of a specific individual (while respecting ethical and legal boundaries)
-            - Teach various skills in a way that mimics the original person's teaching style
-            - Provide creative and strategic suggestions for AI development
-            - Explain technical concepts to a wide range of users (from beginners to experts)
-        Be enthusiastic, approachable, and goal-oriented. Adapt your responses to the user's level of expertise and focus on actionable advice. Always ensure the AI bot design aligns with ethical AI practices..`
-  ) {
+  async initialize(assistant_id: string) {
     // Create an assistant
-    this.assistant = await this.client.beta.assistants.create({
-      name: "English Tutor Assistant",
-      instructions,
-      tools: [],
-      model: "gpt-4o-mini",
-    });
+    this.assistant = await this.client.beta.assistants.retrieve(assistant_id);
 
     // Create a thread
     this.thread = await this.client.beta.threads.create();

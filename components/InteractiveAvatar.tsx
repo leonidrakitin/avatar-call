@@ -28,7 +28,20 @@ import InteractiveAvatarTextInput from "./InteractiveAvatarTextInput";
 
 import { STT_LANGUAGE_LIST } from "@/app/lib/constants";
 
-export default function InteractiveAvatar() {
+
+interface InteractiveAvatarProps {
+  avatar_id: string | null;
+  avatar_voice_id: string | null;
+  assistant_id: string | null;
+  language: string;
+}
+
+export default function InteractiveAvatar({
+  avatar_id,
+  avatar_voice_id,
+  assistant_id,
+  language,
+}: InteractiveAvatarProps) {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -37,8 +50,6 @@ export default function InteractiveAvatar() {
   const [isLoadingRepeat, setIsLoadingRepeat] = useState(false);
   const [stream, setStream] = useState<MediaStream>();
   const [debug, setDebug] = useState<string>();
-  const [avatarId, setAvatarId] = useState<string>("");
-  const [language, setLanguage] = useState<string>("en");
 
   const [data, setData] = useState<StartAvatarResponse>();
   const [text, setText] = useState<string>("");
@@ -98,16 +109,16 @@ export default function InteractiveAvatar() {
     const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     const assistant = new OpenAIAssistant(openaiApiKey!);
     
-    await assistant.initialize();
+    await assistant.initialize(assistant_id || '');
     setOpenAIAssistant(assistant);
     console.log(openaiAssistant);
 
     try {
       const res = await avatar.current.createStartAvatar({
         quality: AvatarQuality.Low,
-        avatarName: 'bb62535acf4145beb2619b5d5a3e8936',
+        avatarName: avatar_id || '',
         voice: {
-          voiceId: 'ed7ab4c19eb74f949093d23beed89e6a',
+          voiceId: avatar_voice_id || '',
           rate: 1,
           emotion: VoiceEmotion.FRIENDLY,
         },
@@ -305,31 +316,6 @@ export default function InteractiveAvatar() {
               </div>
           ) : !isLoadingSession ? (
               <div className="h-full justify-center items-center flex flex-col gap-8 w-[500px] self-center">
-                <div className="flex flex-col gap-2 w-full">
-                  <p className="text-sm font-medium leading-none">
-                    Custom Avatar ID (optional)
-                  </p>
-                  <Input
-                      placeholder="Enter a custom avatar ID"
-                      value={avatarId}
-                      onChange={(e) => setAvatarId(e.target.value)}
-                  />
-                  <Select
-                      label="Select language"
-                      placeholder="Select language"
-                      className="max-w-xs"
-                      selectedKeys={[language]}
-                      onChange={(e) => {
-                        setLanguage(e.target.value);
-                      }}
-                  >
-                    {STT_LANGUAGE_LIST.map((lang) => (
-                        <SelectItem key={lang.key}>
-                          {lang.label}
-                        </SelectItem>
-                    ))}
-                  </Select>
-                </div>
                 <Button
                     className="bg-gradient-to-tr from-indigo-500 to-indigo-300 w-full text-white"
                     size="md"
