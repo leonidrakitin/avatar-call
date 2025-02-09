@@ -10,7 +10,7 @@ function AvatarWrapper() {
   const avatar_id = searchParams.get("avatar_id");
   const avatar_voice_id = searchParams.get("avatar_voice_id");
   const assistant_id = searchParams.get("assistant_id");
-  const language = searchParams.get("language") || "en"; // значение по умолчанию
+  const language = searchParams.get("language") || "en";
 
   return (
     <InteractiveAvatar
@@ -25,9 +25,9 @@ function AvatarWrapper() {
 export default function App() {
   return (
     <div className="w-screen h-screen flex flex-col">
-      <div className="w-[900px] flex flex-col items-start justify-start gap-5 mx-auto pt-4 pb-20">
-        <div className="w-full">
-          <Suspense fallback={<p>Loading...</p>}>
+      <div className="w-full flex-1 flex flex-col items-center justify-center md:pt-4 md:pb-20">
+        <div className="w-full h-full md:max-w-[900px]">
+          <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><p>Loading...</p></div>}>
             <AvatarWrapper />
           </Suspense>
         </div>

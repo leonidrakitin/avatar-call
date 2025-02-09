@@ -27,6 +27,7 @@ import { OpenAIAssistant } from "@/app/openai-assistant";
 import InteractiveAvatarTextInput from "./InteractiveAvatarTextInput";
 
 import { STT_LANGUAGE_LIST } from "@/app/lib/constants";
+import { MicrophoneSlash, PaperPlaneRight, PhoneDisconnect } from "@phosphor-icons/react";
 
 
 interface InteractiveAvatarProps {
@@ -180,10 +181,10 @@ export default function InteractiveAvatar({
         const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
         console.log("Audio blob created:", audioBlob);
 
-        // Воспроизведение аудио для проверки
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audio.play();
+        // // Воспроизведение аудио для проверки
+        // const audioUrl = URL.createObjectURL(audioBlob);
+        // const audio = new Audio(audioUrl);
+        // audio.play();
 
         // Обработка с OpenAI
         try {
@@ -204,13 +205,7 @@ export default function InteractiveAvatar({
         } finally {
           setChatHistory((prev) => [
             ...prev,
-            {user: "{...}", response: "Sorry, I couldn't process your voice input now. Please try later."},
           ]);
-          await avatar.current?.speak({
-            text: "Sorry, I couldn't process your voice input now. Please try later.",
-            taskType: TaskType.REPEAT,
-            taskMode: TaskMode.SYNC,
-          });
         }
       };
 
@@ -277,128 +272,122 @@ export default function InteractiveAvatar({
     }
   }, [mediaStream, stream]);
 
-  return (
-    <div className="w-full flex flex-col gap-4">
-      <Card>
-        <CardBody className="h-[500px] flex flex-col justify-center items-center">
+   return (
+    <div className="w-full h-full flex flex-col gap-4">
+      <Card className="h-full flex flex-col rounded-none md:rounded-lg">
+        <CardBody className="flex-1 p-0 relative">
           {stream ? (
-              <div className="h-[500px] w-[900px] justify-center items-center flex rounded-lg overflow-hidden">
-                <video
-                    ref={mediaStream}
-                    autoPlay
-                    playsInline
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                    }}
-                >
-                  <track kind="captions"/>
-                </video>
-                <div className="flex flex-col gap-2 absolute bottom-3 right-3">
-                  <Button
-                      className="bg-gradient-to-tr from-indigo-500 to-indigo-300 text-white rounded-lg"
-                      size="md"
-                      variant="shadow"
-                      onClick={handleInterrupt}
-                  >
-                    Interrupt task
-                  </Button>
-                  <Button
-                      className="bg-gradient-to-tr from-indigo-500 to-indigo-300  text-white rounded-lg"
-                      size="md"
-                      variant="shadow"
-                      onClick={endSession}
-                  >
-                    End session
-                  </Button>
-                </div>
-              </div>
-          ) : !isLoadingSession ? (
-              <div className="h-full justify-center items-center flex flex-col gap-8 w-[500px] self-center">
+            <div className="h-full w-full flex justify-center items-center bg-black">
+              <video
+                ref={mediaStream}
+                autoPlay
+                playsInline
+                className="h-full w-full object-contain"
+              >
+                <track kind="captions" />
+              </video>
+              
+              {/* Контролы звонка */}
+              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4">
                 <Button
-                    className="bg-gradient-to-tr from-indigo-500 to-indigo-300 w-full text-white"
-                    size="md"
-                    variant="shadow"
-                    onPress={startSession}
+                  isIconOnly
+                  className="bg-red-500 text-white h-14 w-14 rounded-full"
+                  onPress={endSession}
                 >
-                  Start session
+                  <PhoneDisconnect size={24} />
+                </Button>
+                <Button
+                  isIconOnly
+                  className="bg-yellow-500 text-white h-14 w-14 rounded-full"
+                  onPress={handleInterrupt}
+                >
+                  <MicrophoneSlash size={24} />
                 </Button>
               </div>
+            </div>
+          ) : !isLoadingSession ? (
+            <div className="h-full flex flex-col items-center justify-center gap-8 p-4">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold mb-2">Avatar Call</h1>
+                <p className="text-gray-500">Start a conversation with AI avatar</p>
+              </div>
+              <Button
+                className="bg-green-600 text-white w-full max-w-[300px] h-14 text-lg"
+                onPress={startSession}
+              >
+                Start call
+              </Button>
+            </div>
           ) : (
-              <Spinner color="default" size="lg"/>
+            <div className="h-full flex items-center justify-center">
+              <Spinner color="primary" size="lg" />
+            </div>
           )}
         </CardBody>
-        <Divider/>
-        <CardFooter className="flex flex-col gap-3 relative">
+
+        {/* Чат и управление */}
+        <div className="p-4 border-t">
           <Tabs
-              aria-label="Options"
-              selectedKey={chatMode}
-              onSelectionChange={(v) => {
-                handleChangeChatMode(v);
-              }}
+            aria-label="Chat mode"
+            selectedKey={chatMode}
+            onSelectionChange={handleChangeChatMode}
+            className="mb-4"
           >
-            <Tab key="text_mode" title="Text mode"/>
-            <Tab key="voice_mode" title="Voice mode"/>
+            <Tab key="text_mode" title="Text" />
+            <Tab key="voice_mode" title="Voice" />
           </Tabs>
+
           {chatMode === "text_mode" ? (
-              <div className="w-full flex relative">
-                <InteractiveAvatarTextInput
-                    disabled={!stream}
-                    input={text}
-                    label="Chat"
-                    loading={isLoadingRepeat}
-                    placeholder="Type something for the avatar to respond"
-                    setInput={setText}
-                    onSubmit={handleSpeak}
-                />
-                {text && (
-                    <Chip className="absolute right-16 top-3">Listening</Chip>
-                )}
-              </div>
+            <div className="flex gap-2">
+              <Input
+                fullWidth
+                value={text}
+                onValueChange={setText}
+                placeholder="Type your message..."
+                onKeyDown={(e) => e.key === "Enter" && handleSpeak()}
+              />
+              <Button
+                isIconOnly
+                color="primary"
+                onPress={handleSpeak}
+                disabled={isLoadingRepeat}
+              >
+                {isLoadingRepeat ? <Spinner size="sm" /> : <PaperPlaneRight size={20} />}
+              </Button>
+            </div>
           ) : (
-              <div className="w-full text-center">
-                <Button
-                    className="bg-gradient-to-tr from-indigo-500 to-indigo-300 text-white"
-                    size="md"
-                    variant="shadow"
-                    onClick={handleRecordButtonClick}
-                >
-                  {isRecording ? "Send" : "Talk"}
-                </Button>
-              </div>
+            <div className="flex justify-center">
+              <Button
+                className={`w-full max-w-[200px] h-12 ${
+                  isRecording ? "bg-red-500" : "bg-primary"
+                }`}
+                onPress={handleRecordButtonClick}
+              >
+                {isRecording ? "Stop Recording" : "Start Recording"}
+              </Button>
+            </div>
           )}
-        </CardFooter>
-      </Card>
-      <Card>
-        <div className="h-auto w-full p-4 flex flex-col rounded-lg shadow-md">
-          <h3 className="text-xl font-bold mb-4 text-center">Chat History</h3>
-          <div className="text-sm font-medium max-h-64 overflow-y-auto space-y-4">
-            {chatHistory.length === 0 ? (
-                <div className="text-center text-blue-600 font-medium">
-                  Nothing to display
-                </div>
-            ) : (
-                chatHistory.map((entry, index) => (
-                    <div key={index} className="flex flex-col">
-                      <div className="text-right text-blue-1000 font-medium">
-                        {entry.user}
-                        </div>
-                      <div className="text-left text-blue-600 font-medium">
-                        {entry.response}
-                      </div>
-                    </div>
-                ))
-            )}
-          </div>
         </div>
       </Card>
 
-      <p className="font-mono text-right">
-        <span className="font-bold">Console:</span>
-        <br/>
-        {debug}
-      </p>
+      {/* История чата */}
+      <Card className="md:rounded-lg rounded-none">
+        <div className="p-4">
+          <h3 className="font-bold mb-2">Chat History</h3>
+          <div className="space-y-3 max-h-[200px] overflow-y-auto">
+            {chatHistory.map((entry, index) => (
+              <div key={index} className="flex flex-col gap-1">
+                <div className="text-sm font-medium text-primary">
+                  You: {entry.user}
+                </div>
+                <div className="text-sm text-gray-600">
+                  Avatar: {entry.response}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
