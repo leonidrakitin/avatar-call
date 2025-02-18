@@ -316,15 +316,7 @@ export default function InteractiveAvatar({
                   onPress={handleRecordButtonClick}
                   disabled={isProcessing}
                 >
-                  {isRecording ? "Stop" : "Record"}
-                </Button>
-                <Button
-                  isIconOnly
-                  className="bg-yellow-500 text-white h-14 w-14 rounded-full"
-                  onPress={handleInterrupt}
-                  disabled={isProcessing}
-                >
-                  <MicrophoneSlash size={24} />
+                  {isRecording ? "Send" : "Record .."}
                 </Button>
               </div>
             </div>
