@@ -19,7 +19,12 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useMemoizedFn } from "ahooks";
 import { OpenAIAssistant } from "@/app/openai-assistant";
-import { MicrophoneSlash, PaperPlaneRight, PhoneDisconnect } from "@phosphor-icons/react";
+import {
+  MicrophoneSlash,
+  PaperPlaneRight,
+  PhoneDisconnect,
+} from "@phosphor-icons/react";
+import Recorder from "recorder-js";
 
 interface InteractiveAvatarProps {
   avatar_id: string | null;
@@ -38,7 +43,8 @@ export default function InteractiveAvatar({
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [openaiAssistant, setOpenAIAssistant] = useState<OpenAIAssistant | null>(null);
+  const [openaiAssistant, setOpenAIAssistant] =
+    useState<OpenAIAssistant | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   // isProcessing будем использовать и для отключения UI (вместо isLoadingRepeat)
   const [stream, setStream] = useState<MediaStream>();
@@ -46,11 +52,15 @@ export default function InteractiveAvatar({
   const [data, setData] = useState<StartAvatarResponse>();
   const [text, setText] = useState<string>("");
   // История чата: каждый элемент – вопрос (user) и ответ (response)
-  const [chatHistory, setChatHistory] = useState<{ user: string; response: string }[]>([]);
+  const [chatHistory, setChatHistory] = useState<
+    { user: string; response: string }[]
+  >([]);
   const mediaStream = useRef<HTMLVideoElement>(null);
   const avatar = useRef<StreamingAvatar | null>(null);
   const [chatMode, setChatMode] = useState("text_mode");
   const [isUserTalking, setIsUserTalking] = useState(false);
+  const recorderRef = useRef<Recorder | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
   async function fetchAccessToken() {
     try {
@@ -172,49 +182,47 @@ export default function InteractiveAvatar({
     }
   }
 
-  // Обработка голосового ввода
   async function startAudioRecording() {
     try {
       console.log("Requesting microphone access...");
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log("Microphone access granted");
 
-      // Определяем поддерживаемый MIME-тип
-      let mimeType = "";
-      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-        mimeType = "audio/webm;codecs=opus";
-      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
-        mimeType = "audio/mp4";
-      } else if (MediaRecorder.isTypeSupported("audio/wav")) {
-        mimeType = "audio/wav";
-      } else {
-        console.error("No supported MIME type for recording");
-        return;
+      // Создайте новый экземпляр Recorder.js и начните запись
+      const audioContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
+      recorderRef.current = new Recorder(audioContext);
+      await recorderRef.current.init(stream);
+      if (recorderRef.current !== null) {
+        recorderRef.current.start();
       }
 
-      const mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
+      console.log("Recording started...");
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+    }
+  }
 
-      const audioChunks: Blob[] = [];
-      mediaRecorder.ondataavailable = (event) => {
-        console.log("Data available:", event.data);
-        audioChunks.push(event.data);
-      };
+  const stopRecording = async () => {
+    try {
+      if (recorderRef.current) {
+        // Останавливаем запись
+        const { blob } = await recorderRef.current.stop();
+        setAudioBlob(blob);
+        setIsRecording(false);
+        console.log("Recording stopped");
 
-      mediaRecorder.onstop = async () => {
-        console.log("MediaRecorder stopped");
-        // Создаем Blob с указанным MIME-типом
-        const audioBlob = new Blob(audioChunks, { type: mimeType });
-        console.log("Audio blob created:", audioBlob);
-
-        setIsProcessing(true);
-        try {
-          // Получаем расшифровку
-          const transcription = await openaiAssistant?.getResponseFromAudio(audioBlob);
+        // Отправляем полученную запись для дальнейшей обработки
+        if (blob) {
+          // Например, отправить аудио на расшифровку
+          const transcription =
+            await openaiAssistant?.getResponseFromAudio(blob);
           if (transcription) {
-            // Добавляем вопрос в историю сразу после расшифровки
-            setChatHistory((prev) => [...prev, { user: transcription, response: "" }]);
-            // Получаем ответ от Assistant
+            setChatHistory((prev) => [
+              ...prev,
+              { user: transcription, response: "" },
+            ]);
             const response = await openaiAssistant?.getResponse(transcription);
             setChatHistory((prev) => {
               const newHistory = [...prev];
@@ -224,36 +232,27 @@ export default function InteractiveAvatar({
               };
               return newHistory;
             });
-            // Отправляем текст в Heygen для озвучивания
             await avatar.current?.speak({
               text: response!,
               taskType: TaskType.REPEAT,
               taskMode: TaskMode.SYNC,
             });
           }
-        } catch (error) {
-          console.error("Error processing audio:", error);
-        } finally {
-          setIsProcessing(false);
         }
-      };
-
-      mediaRecorder.start();
-      console.log("MediaRecorder started with MIME type:", mimeType);
+      }
     } catch (error) {
-      console.error("Error accessing microphone:", error);
+      console.error("Error stopping recording:", error);
     }
-  }
+  };
 
-  // Обработка клика по кнопке записи
   const handleRecordButtonClick = async () => {
-    if (isProcessing) return; // блокируем запуск новой записи, если идёт обработка
+    if (isProcessing) return; // блокируем запуск новой записи, если идет обработка
     if (!isRecording) {
       setIsRecording(true);
       await startAudioRecording();
     } else {
       setIsRecording(false);
-      mediaRecorderRef.current?.stop();
+      await stopRecording();
     }
   };
 
@@ -297,7 +296,12 @@ export default function InteractiveAvatar({
         <CardBody className="flex-1 p-0 relative">
           {stream ? (
             <div className="h-full w-full flex justify-center items-center bg-black relative">
-              <video ref={mediaStream} autoPlay playsInline className="h-full w-full object-contain">
+              <video
+                ref={mediaStream}
+                autoPlay
+                playsInline
+                className="h-full w-full object-contain"
+              >
                 <track kind="captions" />
               </video>
               {/* Оверлей с элементами управления */}
@@ -324,10 +328,12 @@ export default function InteractiveAvatar({
             <div className="h-full flex flex-col items-center justify-center gap-8 p-4">
               <div className="text-center">
                 <h1 className="text-2xl font-bold mb-2">Avatar Call</h1>
-                <p className="text-gray-500">Start a conversation with AI avatar</p>
+                <p className="text-gray-500">
+                  Start a conversation with AI avatar
+                </p>
               </div>
               <Button
-                className="bg-green-600 text-white w-full max-w-[300px] h-14 text-lg"
+                className="bg-[#9047ff] text-white w-full max-w-[300px] h-14 text-lg"
                 onPress={startSession}
               >
                 Start call
@@ -378,7 +384,11 @@ export default function InteractiveAvatar({
                 onPress={handleSpeak}
                 disabled={isProcessing}
               >
-                {isProcessing ? <Spinner size="sm" /> : <PaperPlaneRight size={20} />}
+                {isProcessing ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <PaperPlaneRight size={20} />
+                )}
               </Button>
             </div>
           ) : (
@@ -394,12 +404,19 @@ export default function InteractiveAvatar({
         <div className="p-4">
           <h3 className="font-bold mb-2">Chat History</h3>
           <div className="space-y-3 max-h-[200px] overflow-y-auto">
-            {chatHistory.slice().reverse().map((entry, index) => (
-              <div key={index} className="flex flex-col gap-1">
-                <div className="text-sm font-medium text-primary">You: {entry.user}</div>
-                <div className="text-sm text-gray-600">Avatar: {entry.response}</div>
-              </div>
-            ))}
+            {chatHistory
+              .slice()
+              .reverse()
+              .map((entry, index) => (
+                <div key={index} className="flex flex-col gap-1">
+                  <div className="text-sm font-medium text-primary">
+                    You: {entry.user}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Avatar: {entry.response}
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       </Card>
